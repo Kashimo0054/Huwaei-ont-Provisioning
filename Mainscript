@@ -1,0 +1,460 @@
+import getpass
+import paramiko
+import time
+
+ssh_client = paramiko.SSHClient()
+ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+hostname = ("172.17.19.60")
+username = input("Enter SSH Username: ")
+password = getpass.getpass(prompt='Enter password')
+port = 22
+
+ssh_client.connect(hostname, port, username, password)
+connection = ssh_client.invoke_shell()
+
+time.sleep(0.5)
+connection.send('enable\n')
+time.sleep(0.5)
+connection.send('config\n')
+time.sleep(0.5)
+connection.send('display ont autofind all \n')
+time.sleep(0.5)
+connection.send(' \n')
+time.sleep(2)
+
+
+
+router_output = connection.recv(10000).decode("utf-8")
+
+print(router_output)
+
+onu_registration = input("Do you want to register the onu displayed in output type y for yes and n for no : ").lower()
+sn = input("enter sn ")
+vlan = input("enter you vlan id")
+port = (router_output[449])
+slot = (router_output[447])
+# frame = (router_output[377:378])
+a = (router_output.index(sn))
+b = a - 30
+
+print(slot)
+print(port)
+
+
+
+
+
+
+
+
+
+
+def registeration():
+    while onu_registration != "n":
+        registration_type = input(
+            "what mode do you want to register the onu in type b for bridge and r for router mode: ").lower()
+
+        if registration_type == "b" and vlan == "700":
+            bridge_700()
+            time.sleep(5)
+            break
+
+        elif registration_type == "b" and vlan == "702":
+            bridge_702()
+            time.sleep(5)
+            break
+
+        elif registration_type == "r" and vlan == "700":
+            router_700()
+            time.sleep(5)
+            break
+        elif registration_type == "r" and vlan == "702":
+            router_702()
+            time.sleep(5)
+            break
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def bridge_700():
+
+    time.sleep(1)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send("interface " + "gpon" + " " + "0/" + slot + " \n")
+    time.sleep(1)
+    connection.send(' \n')
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+
+    # vlan = input("enter you vlan id")
+    time.sleep(0.5)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(
+        "ont " + " confirm " + port + " sn-auth " + sn + " omci " + " ont-lineprofile-id 70 " + " ont-srvprofile-id 1 " + " desc " + ' "python_registering"'"\n")
+    time.sleep(2)
+    connection.send(' \n')
+    time.sleep(1)
+
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+    c = (router_output.index("ONTID"))
+    print(c)
+    ont = (router_output[448:450])
+    print(ont)
+    time.sleep(0.5)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(" ont port " + "native-vlan " + port + " " + ont + " eth 1 vlan " + vlan + " \n ")
+    time.sleep(2)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(" quit " + "\n")
+    time.sleep(0.5)
+    connection.send(' \n')
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(
+        "service-port" + " vlan " + vlan + " gpon 0/" + slot + "/" + port + " " + " ont " + ont + " " + " gemport 14 multi-service user-vlan" + " " + vlan + " tag-transform translate inbound traffic-table index 6 " + "  outbound traffic-table index 6 " " \n ")
+    time.sleep(2)
+    connection.send(' \n')
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+
+    def troubleshoot():
+        display = (" To` display Mac-address type 1\n"
+                   " To undo the ont type 2\n"
+                   " To display  state state type 3\n"
+                   " To display configuration type 4\n"
+                   " To save and quit session type 5\n"
+                   "> ")
+        print(display)
+        display = input("")
+        if display == "1":
+            connection.send(f"display mac-address port 0/{slot}/{port} ont {ont} \n")
+            time.sleep(1.5)
+            connection.send(' \n')
+            time.sleep(0.5)
+            router_output = connection.recv(100000000000).decode("utf-8")
+            print(router_output)
+            time.sleep(1.5)
+            troubleshoot()
+        elif display == "2":
+            time.sleep(1)
+            connection.send(f" undo service-port port  0/{slot}/{port} ont  {ont}  \n"  " \n")
+            time.sleep(1)
+            connection.send("y\n")
+            time.sleep(0.5)
+            connection.send(f"interface  gpon   0/{slot}\n")
+            time.sleep(1)
+            connection.send("y\n")
+            time.sleep(1)
+            connection.send(f"ont delete  {port}  {ont}  \n")
+            time.sleep(1)
+            connection.send(' \n')
+            time.sleep(0.5)
+            connection.send("quit\n")
+            time.sleep(1)
+            router_output = connection.recv(100000000000).decode("utf-8")
+            print(router_output)
+            time.sleep(5)
+            exit()
+        elif display == ("3"):
+            time.sleep(0.5)
+            connection.send(f"interface gpon 0/{slot}\n")
+            time.sleep(0.5)
+            connection.send(
+                f"display ont port state  {port}  {ont} eth-port all\n")
+            time.sleep(1)
+            connection.send(' \n')
+            time.sleep(0.5)
+            connection.send("quit\n")
+            time.sleep(0.5)
+            router_output = connection.recv(100000000000).decode("utf-8")
+            print(router_output)
+            time.sleep(1)
+            troubleshoot()
+        elif display == ("4"):
+            connection.send(f"display current-configuration ont  0/{slot}/{port} {ont} \n")
+            time.sleep(1)
+            connection.send(' \n')
+            time.sleep(0.5)
+            router_output = connection.recv(100000000000).decode("utf-8")
+            print(router_output)
+            time.sleep(1)
+            troubleshoot()
+        elif display == ("5"):
+            connection.send("save\n" + "\n")
+            time.sleep(5)
+            print("session closed.")
+            exit()
+
+        else:
+            print("% Unknown command")
+
+    voip = input("do you want to pass voip vlan type y for yes and n for no: ").lower()
+    time.sleep(3)
+
+    troubleshoot_input = input("do you want troubleshoot the registered onu: ").lower()
+
+    if voip == "y" and troubleshoot_input == "y":
+        connection.send(' \n')
+        time.sleep(5)
+        connection.send("service-port" + " vlan " + "2000" + " gpon 0/" + slot + "/" + port + " " + " ont " + ont + " " + " gemport 12 multi-service user-vlan" + " " + "2000" + " tag-transform translate inbound traffic-table index 6 " + "  outbound traffic-table index 6 " " \n ")
+        router_output = connection.recv(100000000000).decode("utf-8")
+        print(router_output)
+        troubleshoot()
+    elif voip == "n" and troubleshoot_input== "y":
+        troubleshoot()
+    elif voip == "y" and troubleshoot_input == "n":
+        connection.send(' \n')
+        time.sleep(5)
+        connection.send(
+            "service-port" + " vlan " + "2000" + " gpon 0/" + slot + "/" + port + " " + " ont " + ont + " " + " gemport 12 multi-service user-vlan" + " " + "2000" + " tag-transform translate inbound traffic-table index 6 " + "  outbound traffic-table index 6 " " \n ")
+        router_output = connection.recv(100000000000).decode("utf-8")
+        print(router_output)
+
+    else:
+        exit()
+
+
+
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+
+
+
+
+
+
+
+def router_700():
+
+    time.sleep(1)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send("interface " + "gpon" + " " + "0/" + slot + " \n")
+    time.sleep(1)
+    connection.send(' \n')
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+
+    # vlan = input("enter you vlan id")
+    time.sleep(0.5)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(
+        "ont " + " confirm " + port + " sn-auth " + sn + " omci " + " ont-lineprofile-id 70 " + " ont-srvprofile-id 1 " + " desc " + ' "python_registering"'"\n")
+    time.sleep(2)
+    connection.send(' \n')
+    time.sleep(1)
+
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+    c = (router_output.index("ONTID"))
+    print(c)
+    ont = (router_output[448:450])
+    print(ont)
+    time.sleep(0.5)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(" ont port " + "native-vlan " + port + " " + ont + " eth 1 vlan " + vlan + " \n ")
+    time.sleep(2)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(" quit " + "\n")
+    time.sleep(0.5)
+    connection.send(' \n')
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(
+        "service-port" + " vlan " + vlan + " gpon 0/" + slot + "/" + port + " " + " ont " + ont + " " + " gemport 14 multi-service user-vlan" + " " + vlan + " tag-transform translate inbound traffic-table index 6 " + "  outbound traffic-table index 6 " " \n ")
+    time.sleep(2)
+    connection.send(' \n')
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+
+    voip = input("do you want to pass voip vlan type y for yes and n for no: ").lower()
+    if voip == "y":
+        connection.send(' \n')
+        time.sleep(5)
+        connection.send("service-port" + " vlan " + "2000" + " gpon 0/" + slot + "/" + port + " " + " ont " + ont + " " + " gemport 12 multi-service user-vlan" + " " + "2000" + " tag-transform translate inbound traffic-table index 6 " + "  outbound traffic-table index 6 " " \n ")
+        router_output = connection.recv(100000000000).decode("utf-8")
+        print(router_output)
+    else:
+        exit()
+
+
+
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+
+
+
+def router_702():
+    time.sleep(1)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send("interface " + "gpon" + " " + "0/" + slot + " \n")
+    time.sleep(1)
+    connection.send(' \n')
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+
+    # vlan = input("enter you vlan id")
+    time.sleep(0.5)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(
+        "ont " + " confirm " + port + " sn-auth " + sn + " omci " + " ont-lineprofile-id 72 " + " ont-srvprofile-id 1 " + " desc " + ' "python_registering"'"\n")
+    time.sleep(2)
+    connection.send(' \n')
+    time.sleep(1)
+
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+    c = (router_output.index("ONTID"))
+    print(c)
+    ont = (router_output[448:450])
+    print(ont)
+    time.sleep(0.5)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(" ont port " + "native-vlan " + port + " " + ont + " eth 1 vlan " + vlan + " \n ")
+    time.sleep(2)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(" quit " + "\n")
+    time.sleep(0.5)
+    connection.send(' \n')
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(
+        "service-port" + " vlan " + vlan + " gpon 0/" + slot + "/" + port + " " + " ont " + ont + " " + " gemport 14 multi-service user-vlan" + " " + vlan + " tag-transform translate inbound traffic-table index 6 " + "  outbound traffic-table index 6 " " \n ")
+    time.sleep(2)
+    connection.send(' \n')
+
+    voip = input("do you want to pass voip vlan type y for yes and n for no: ").lower()
+    if voip == "y":
+        connection.send(' \n')
+        time.sleep(5)
+        connection.send(
+            "service-port" + " vlan " + "2000" + " gpon 0/" + slot + "/" + port + " " + " ont " + ont + " " + " gemport 12 multi-service user-vlan" + " " + "2000" + " tag-transform translate inbound traffic-table index 6 " + "  outbound traffic-table index 6 " " \n ")
+        router_output = connection.recv(100000000000).decode("utf-8")
+        print(router_output)
+
+        exit()
+    else:
+        exit()
+
+
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+
+
+
+
+
+def bridge_702():
+    time.sleep(1)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send("interface " + "gpon" + " " + "0/" + slot + " \n")
+    time.sleep(1)
+    connection.send(' \n')
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+
+    # vlan = input("enter you vlan id")
+    time.sleep(0.5)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(
+        "ont " + " confirm " + port + " sn-auth " + sn + " omci " + " ont-lineprofile-id 72 " + " ont-srvprofile-id 1 " + " desc " + ' "python_registering"'"\n")
+    time.sleep(2)
+    connection.send(' \n')
+    time.sleep(1)
+
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+    c = (router_output.index("ONTID"))
+    print(c)
+    ont = (router_output[448:450])
+    print(ont)
+    time.sleep(0.5)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(" ont port " + "native-vlan " + port + " " + ont + " eth 1 vlan " + vlan + " \n ")
+    time.sleep(2)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(" quit " + "\n")
+    time.sleep(0.5)
+    connection.send(' \n')
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+    connection.send(' \n')
+    time.sleep(0.5)
+    connection.send(
+        "service-port" + " vlan " + vlan + " gpon 0/" + slot + "/" + port + " " + " ont " + ont + " " + " gemport 14 multi-service user-vlan" + " " + vlan + " tag-transform translate inbound traffic-table index 6 " + "  outbound traffic-table index 6 " " \n ")
+    time.sleep(2)
+    connection.send(' \n')
+
+    voip = input("do you want to pass voip vlan type y for yes and n for no: ").lower()
+    if voip == "y":
+        connection.send(' \n')
+        time.sleep(5)
+        connection.send(
+            "service-port" + " vlan " + "2000" + " gpon 0/" + slot + "/" + port + " " + " ont " + ont + " " + " gemport 12 multi-service user-vlan" + " " + "2000" + " tag-transform translate inbound traffic-table index 6 " + "  outbound traffic-table index 6 " " \n ")
+        router_output = connection.recv(100000000000).decode("utf-8")
+        print(router_output)
+
+        exit()
+    else:
+        exit()
+
+
+    router_output = connection.recv(10000).decode("utf-8")
+    print(router_output)
+
+
+
+
+
+
+
+
+
+
+
+if onu_registration == "y":
+   registeration()
+else:
+    print("Thank you for your time")
+
+
+print("Thank you for your time")
+
+
+
+
+
